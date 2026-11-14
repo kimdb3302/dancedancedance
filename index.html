@@ -1,0 +1,1804 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>손그림 캐릭터 만세 댄스</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #ffffff;
+      color: #111111;
+      font-family: 'Noto Sans KR', sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .sketch-font {
+      font-family: 'Gaegu', 'Noto Sans KR', cursive, sans-serif;
+    }
+
+    /* 손그림 느낌의 테두리 및 버튼 스타일 */
+    .sketch-box {
+      border: 2.5px solid #111111;
+      border-radius: 3px 6px 4px 5px / 5px 4px 6px 3px;
+      background: #ffffff;
+      transition: transform 0.1s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .sketch-box:active {
+      transform: scale(0.97);
+    }
+
+    .sketch-btn-active {
+      background-color: #fff3d6 !important;
+      box-shadow: 3px 3px 0px #111111;
+      transform: translate(-1px, -1px);
+    }
+
+    /* 손그림 스타일 4단 레이어 아이템 및 썸네일 박스 */
+    .layer-item {
+      border: 2.5px solid #111111;
+      border-radius: 3px 2px 4px 2px / 2px 4px 2px 3px;
+      background: #ffffff;
+      transition: all 0.12s ease;
+      cursor: pointer;
+    }
+
+    .layer-item:hover {
+      background-color: #fafafa;
+    }
+
+    .layer-item.active {
+      background-color: #fff3d6;
+      box-shadow: 3px 3px 0px #111111;
+      transform: translate(-1px, -1px);
+    }
+
+    .layer-thumb {
+      border: 2px solid #111111;
+      border-radius: 2px 3px 2px 3px / 3px 2px 3px 2px;
+      background: #ffffff;
+      overflow: hidden;
+    }
+
+    /* 우측 패널 노래 선택 버튼 */
+    .song-btn {
+      border: 2.5px solid #111111;
+      border-radius: 2px;
+      background: #ffffff;
+      color: #111111;
+      transition: all 0.12s ease;
+      cursor: pointer;
+    }
+
+    .song-btn:hover {
+      background-color: #f9fafb;
+    }
+
+    .song-btn.selected {
+      background-color: #fff3d6;
+      box-shadow: 3px 3px 0px #111111;
+      transform: translate(-1px, -1px);
+      font-weight: 700;
+    }
+
+    /* 무지개 Hue 슬라이더 */
+    .hue-slider {
+      background: linear-gradient(
+        to right,
+        #ff0000 0%,
+        #ffff00 17%,
+        #00ff00 33%,
+        #00ffff 50%,
+        #0000ff 67%,
+        #ff00ff 83%,
+        #ff0000 100%
+      );
+      border: 1.5px solid #111111;
+      border-radius: 2px;
+      cursor: crosshair;
+      position: relative;
+    }
+
+    /* 커스텀 브러시 크기 슬라이더 */
+    input[type="range"].sketch-range {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    input[type="range"].sketch-range::-webkit-slider-runnable-track {
+      height: 4px;
+      background: #111111;
+      border-radius: 2px;
+    }
+
+    input[type="range"].sketch-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 2.5px solid #111111;
+      margin-top: -5px;
+    }
+
+    #canvas-wrapper {
+      touch-action: none;
+      cursor: crosshair;
+    }
+
+    /* 이퀄라이저 애니메이션 바 */
+    @keyframes eqBounce {
+      0%, 100% { height: 25%; }
+      50% { height: 95%; }
+    }
+    .eq-bar {
+      animation: eqBounce 0.45s ease-in-out infinite;
+    }
+    .eq-paused .eq-bar {
+      animation-play-state: paused;
+      height: 25% !important;
+    }
+
+    .fade-in {
+      animation: fadeIn 0.3s ease forwards;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.985); }
+      to { opacity: 1; transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ========================================================= -->
+  <!-- 1. 드로잉 에디터 화면 (좌측 도구 / 중앙 캔버스 / 우측 노래 선택) -->
+  <!-- ========================================================= -->
+  <div id="editor-view" class="w-full h-full flex flex-row bg-white overflow-hidden">
+    
+    <!-- 좌측 사이드바: 펜/지우개, 실행취소, 컬러 팔레트 & 피커, 브러시 크기, 4단 레이어 패널 -->
+    <aside class="w-[165px] sm:w-[205px] md:w-[230px] h-full flex flex-col justify-between px-3 sm:px-4 py-2.5 sm:py-3.5 shrink-0 bg-white z-10 overflow-y-auto">
+      <div class="flex flex-col gap-2 sm:gap-2.5">
+        
+        <!-- 1행: 연필(펜) & 지우개 손그림 버튼 -->
+        <div class="flex items-center justify-between gap-2">
+          <button id="btn-pen" type="button" title="펜 그리기" class="relative w-[58px] sm:w-[74px] h-[46px] sm:h-[54px] flex items-center justify-center rounded-md transition-transform active:scale-95 sketch-btn-active">
+            <svg viewBox="0 0 80 70" class="w-full h-full overflow-visible">
+              <path d="M 6,8 C 25,5 58,6 73,7 C 75,24 72,48 70,61 C 50,64 22,65 5,62 C 4,43 5,20 7,6" fill="none" stroke="#111" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+              <g transform="translate(8, 4)">
+                <path d="M 42,8 L 50,15 L 18,48 L 8,51 L 11,41 Z" fill="#fff" stroke="#111" stroke-width="2.8" stroke-linejoin="round"/>
+                <path d="M 37,13 L 45,20" stroke="#111" stroke-width="2.5" stroke-linecap="round"/>
+                <path d="M 11,41 L 18,48" stroke="#111" stroke-width="2.2" stroke-linecap="round"/>
+                <path d="M 8,51 L 13,49 L 10,46 Z" fill="#111"/>
+              </g>
+            </svg>
+          </button>
+
+          <button id="btn-eraser" type="button" title="지우개" class="relative w-[58px] sm:w-[74px] h-[46px] sm:h-[54px] flex items-center justify-center rounded-md transition-transform active:scale-95">
+            <svg viewBox="0 0 80 70" class="w-full h-full overflow-visible">
+              <path d="M 8,9 C 30,6 55,8 72,10 C 73,28 73,47 71,62 C 49,64 24,65 7,63 C 6,42 5,23 8,11" fill="none" stroke="#111" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+              <g transform="translate(6, 4)">
+                <path d="M 28,14 L 54,26 L 38,48 L 12,35 Z" fill="#fff" stroke="#111" stroke-width="2.8" stroke-linejoin="round"/>
+                <path d="M 12,35 L 12,45 L 28,53 L 38,48" fill="#fff" stroke="#111" stroke-width="2.8" stroke-linejoin="round"/>
+                <path d="M 20,25 L 45,37" stroke="#111" stroke-width="2.4" stroke-linecap="round"/>
+              </g>
+            </svg>
+          </button>
+        </div>
+
+        <!-- 2행: 실행취소(Undo) & 다시실행(Redo) -->
+        <div class="flex items-center justify-around px-1">
+          <button id="btn-undo" type="button" title="실행 취소" class="w-11 h-8 sm:w-12 sm:h-9 flex items-center justify-center transition-transform active:scale-90 disabled:opacity-30">
+            <svg viewBox="0 0 70 55" class="w-full h-full">
+              <path d="M 24,44 C 46,45 58,38 56,28 C 54,19 36,16 14,18" fill="none" stroke="#111" stroke-width="4" stroke-linecap="round"/>
+              <path d="M 24,10 L 10,18 L 22,27 Z" fill="none" stroke="#111" stroke-width="3.8" stroke-linejoin="round"/>
+            </svg>
+          </button>
+
+          <button id="btn-redo" type="button" title="다시 실행" class="w-11 h-8 sm:w-12 sm:h-9 flex items-center justify-center transition-transform active:scale-90 disabled:opacity-30">
+            <svg viewBox="0 0 70 55" class="w-full h-full">
+              <path d="M 42,14 C 20,14 10,22 12,31 C 14,40 32,42 54,39" fill="none" stroke="#111" stroke-width="4" stroke-linecap="round"/>
+              <path d="M 44,31 L 58,39 L 45,48 Z" fill="none" stroke="#111" stroke-width="3.8" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- 3행: 빠른 색상 스와치 버튼 -->
+        <div class="grid grid-cols-6 gap-1" id="swatch-grid">
+          <button type="button" data-color="#111111" class="color-swatch w-full aspect-square rounded-full border-2 border-[#111] bg-[#111111] ring-2 ring-offset-1 ring-[#111]" title="검정"></button>
+          <button type="button" data-color="#ef4444" class="color-swatch w-full aspect-square rounded-full border-2 border-[#111] bg-[#ef4444]" title="빨강"></button>
+          <button type="button" data-color="#f97316" class="color-swatch w-full aspect-square rounded-full border-2 border-[#111] bg-[#f97316]" title="주황"></button>
+          <button type="button" data-color="#facc15" class="color-swatch w-full aspect-square rounded-full border-2 border-[#111] bg-[#facc15]" title="노랑"></button>
+          <button type="button" data-color="#22c55e" class="color-swatch w-full aspect-square rounded-full border-2 border-[#111] bg-[#22c55e]" title="초록"></button>
+          <button type="button" data-color="#3b82f6" class="color-swatch w-full aspect-square rounded-full border-2 border-[#111] bg-[#3b82f6]" title="파랑"></button>
+          <button type="button" data-color="#a855f7" class="color-swatch w-full aspect-square rounded-full border-2 border-[#111] bg-[#a855f7]" title="보라"></button>
+          <button type="button" data-color="#ec4899" class="color-swatch w-full aspect-square rounded-full border-2 border-[#111] bg-[#ec4899]" title="분홍"></button>
+          <button type="button" data-color="#06b6d4" class="color-swatch w-full aspect-square rounded-full border-2 border-[#111] bg-[#06b6d4]" title="하늘"></button>
+          <button type="button" data-color="#854d0e" class="color-swatch w-full aspect-square rounded-full border-2 border-[#111] bg-[#854d0e]" title="갈색"></button>
+          <button type="button" data-color="#fed7aa" class="color-swatch w-full aspect-square rounded-full border-2 border-[#111] bg-[#fed7aa]" title="살구색"></button>
+          <button type="button" data-color="#ffffff" class="color-swatch w-full aspect-square rounded-full border-2 border-[#111] bg-[#ffffff]" title="흰색"></button>
+        </div>
+
+        <!-- 4행: 자유 컬러 피커 (SV 박스 + 무지개 Hue 바) -->
+        <div class="flex flex-col gap-1.5">
+          <div id="sv-box" class="relative w-full aspect-[16/11] border-[2.5px] border-[#111] rounded-[2px] cursor-crosshair overflow-hidden">
+            <canvas id="sv-canvas" class="w-full h-full block"></canvas>
+            <div id="sv-cursor" class="w-3.5 h-3.5 rounded-full border-2 border-white shadow-[0_0_0_1.5px_#111] pointer-events-none absolute -translate-x-1/2 -translate-y-1/2" style="left: 0%; top: 93%;"></div>
+          </div>
+          
+          <div id="hue-bar" class="hue-slider w-full h-3">
+            <div id="hue-cursor" class="w-2.5 h-4 bg-white border-2 border-[#111] rounded-[2px] pointer-events-none absolute top-1/2 -translate-x-1/2 -translate-y-1/2" style="left: 0%;"></div>
+          </div>
+        </div>
+
+        <!-- 5행: 브러시 굵기 조절 -->
+        <div class="flex items-center gap-2 px-0.5 h-5 shrink-0">
+          <div class="w-5 h-5 flex items-center justify-center shrink-0">
+            <span id="brush-dot-preview" class="inline-block rounded-full bg-[#111] border border-[#111]" style="width: 10px; height: 10px;"></span>
+          </div>
+          <input id="brush-size" type="range" min="2" max="36" value="10" class="sketch-range w-full" title="브러시 크기 조절" />
+        </div>
+
+        <!-- 6행: 4단 레이어 패널 (숫자가 작을수록 위층: 1이 최상단, 4가 최하단) -->
+        <div class="flex flex-col gap-1.5 pt-0.5">
+          <div class="flex items-center justify-between">
+            <span class="text-sm sm:text-[15px] font-bold tracking-tight text-[#111]">레이어</span>
+            <div class="flex items-center gap-2">
+              <button id="btn-clear-layer" type="button" class="text-[11px] font-medium text-gray-500 hover:text-black underline" title="현재 선택된 레이어 지우기">지우기</button>
+              <button id="btn-clear-canvas" type="button" class="text-[11px] font-medium text-gray-500 hover:text-red-600 underline" title="모든 레이어 초기화">전체 초기화</button>
+            </div>
+          </div>
+
+          <div id="layer-list" class="flex flex-col gap-1.5">
+            <!-- JS로 1~4 레이어 동적 생성 -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 하단 가이드라인 표시/숨김 토글 -->
+      <div class="pt-2">
+        <button id="btn-toggle-guide" type="button" class="sketch-box w-full py-1 text-[11px] sm:text-xs font-medium text-gray-700 hover:bg-gray-100">
+          가이드라인: 켜짐
+        </button>
+      </div>
+    </aside>
+
+    <!-- 좌측 수직 구분선 -->
+    <div class="h-full w-[3px] shrink-0 bg-[#111111] pointer-events-none"></div>
+
+    <!-- 중앙 메인 드로잉 캔버스 영역 -->
+    <main id="canvas-wrapper" class="relative flex-1 h-full bg-white flex items-center justify-center overflow-hidden">
+      <canvas id="main-canvas" class="w-full h-full block"></canvas>
+    </main>
+
+    <!-- 우측 수직 구분선 -->
+    <div class="h-full w-[3px] shrink-0 bg-[#111111] pointer-events-none"></div>
+
+    <!-- 우측 사이드바: 상단 "노래 선택" + 노래 1~4 + 내 음원 불러오기, 하단 "완료" -->
+    <aside class="w-[160px] sm:w-[215px] md:w-[250px] h-full flex flex-col justify-between items-center px-3 sm:px-5 py-4 sm:py-6 shrink-0 bg-white z-10 overflow-y-auto">
+      
+      <!-- 상단 노래 선택 영역 -->
+      <div class="w-full flex flex-col items-center gap-2.5 sm:gap-3 pt-1">
+        <h2 class="text-lg sm:text-[22px] font-bold tracking-[0.12em] text-[#111111] text-center">
+          노래 선택
+        </h2>
+
+        <!-- 4개 내장 신스 트랙 선택 버튼 -->
+        <div class="w-full flex flex-col gap-2" id="song-buttons-group">
+          <button type="button" data-song="1" class="song-btn w-full py-2.5 sm:py-3 px-2.5 flex flex-col items-center justify-center gap-0.5">
+            <span class="text-sm sm:text-base font-bold tracking-wider">노래 1</span>
+            <span class="text-[10px] sm:text-[11px] text-gray-500">보컬찹 일렉트로 (115 BPM)</span>
+          </button>
+
+          <button type="button" data-song="2" class="song-btn w-full py-2.5 sm:py-3 px-2.5 flex flex-col items-center justify-center gap-0.5">
+            <span class="text-sm sm:text-base font-bold tracking-wider">노래 2</span>
+            <span class="text-[10px] sm:text-[11px] text-gray-500">상큼 K-POP 아르페지오 (128 BPM)</span>
+          </button>
+
+          <button type="button" data-song="3" class="song-btn w-full py-2.5 sm:py-3 px-2.5 flex flex-col items-center justify-center gap-0.5">
+            <span class="text-sm sm:text-base font-bold tracking-wider">노래 3</span>
+            <span class="text-[10px] sm:text-[11px] text-gray-500">레트로 신스웨이브 디스코 (120 BPM)</span>
+          </button>
+
+          <button type="button" data-song="4" class="song-btn w-full py-2.5 sm:py-3 px-2.5 flex flex-col items-center justify-center gap-0.5">
+            <span class="text-sm sm:text-base font-bold tracking-wider">노래 4</span>
+            <span class="text-[10px] sm:text-[11px] text-gray-500">신나는 브라스 펑크록 (124 BPM)</span>
+          </button>
+        </div>
+
+        <p class="text-[11px] sm:text-xs text-[#111111] tracking-widest text-center pt-0.5">
+          노래 &nbsp;출처 : &nbsp;브금 &nbsp;대통령
+        </p>
+
+        <!-- 현재 미리듣기 상태 표시기 및 일시정지 버튼 -->
+        <div id="preview-player-bar" class="hidden w-full border-2 border-[#111] bg-[#fafafa] px-2.5 py-1.5 rounded-[2px] flex items-center justify-between gap-1.5">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <div id="preview-eq" class="flex items-end gap-[2px] h-3.5 shrink-0">
+              <span class="eq-bar w-[2.5px] bg-[#111]" style="animation-delay: 0s;"></span>
+              <span class="eq-bar w-[2.5px] bg-[#111]" style="animation-delay: 0.15s;"></span>
+              <span class="eq-bar w-[2.5px] bg-[#111]" style="animation-delay: 0.3s;"></span>
+            </div>
+            <span id="preview-song-label" class="text-[11px] font-bold truncate">노래 1 재생 중</span>
+          </div>
+          <button id="btn-preview-toggle" type="button" class="text-[10px] font-bold px-1.5 py-0.5 border border-[#111] bg-white hover:bg-gray-100 shrink-0">
+            정지
+          </button>
+        </div>
+
+        <!-- 선택사항: 내 음원 파일 불러오기 (.mp3/.wav) -->
+        <div class="w-full pt-1">
+          <label for="local-audio-input" class="w-full py-2 px-2 border-2 border-dashed border-[#111]/70 hover:border-[#111] hover:bg-gray-50 rounded-[2px] flex items-center justify-center gap-1 text-[11px] sm:text-xs font-medium text-gray-700 cursor-pointer text-center transition-colors">
+            <span>📁 내 음원 불러오기 (.mp3/.wav)</span>
+          </label>
+          <input id="local-audio-input" type="file" accept="audio/*" class="hidden" />
+        </div>
+      </div>
+
+      <!-- 하단 완료 버튼 -->
+      <button id="btn-complete" type="button" class="w-full h-[46px] sm:h-[52px] mt-3 border-[2.5px] border-[#111111] rounded-[2px] bg-white hover:bg-[#fff3d6] active:scale-[0.98] transition-all shadow-[3px_3px_0px_#111] flex items-center justify-center text-lg sm:text-[21px] font-bold tracking-[0.12em] text-[#111111] cursor-pointer">
+        완료
+      </button>
+    </aside>
+
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- 2. "완료" 클릭 시 전환되는 만세 댄스 무대 화면 -->
+  <!-- ========================================================= -->
+  <div id="stage-view" class="hidden fixed inset-0 w-full h-full bg-white z-30 flex flex-col justify-between fade-in">
+    
+    <!-- 상단 컨트롤 바 -->
+    <div class="w-full flex flex-wrap items-center justify-between gap-2 px-3 sm:px-6 py-3 sm:py-4 z-20 pointer-events-auto bg-white/80 backdrop-blur-sm border-b-2 border-[#111]/10">
+      <button id="btn-back-edit" type="button" class="sketch-box px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-bold flex items-center gap-1.5 hover:bg-gray-100 shadow-[2px_2px_0px_#111]">
+        <span>←</span>
+        <span>다시 그리기</span>
+      </button>
+
+      <div class="flex flex-wrap items-center gap-2 sm:gap-2.5">
+        <!-- 춤 동작 선택 버튼 (기본: 만세 댄스) -->
+        <button id="btn-dance-style" type="button" class="sketch-box px-3 sm:px-4 py-2 text-xs sm:text-sm font-bold bg-[#fff3d6] hover:bg-[#ffe8b3] shadow-[2px_2px_0px_#111]">
+          춤 동작: 만세 댄스
+        </button>
+
+        <!-- 인원 수 전환 (1명 / 3명 / 5명) -->
+        <button id="btn-clones" type="button" class="sketch-box px-3 sm:px-4 py-2 text-xs sm:text-sm font-bold hover:bg-[#e6f7ff] shadow-[2px_2px_0px_#111]">
+          인원: 1명
+        </button>
+
+        <!-- 음악 일시정지 / 재생 토글 버튼 -->
+        <button id="btn-stage-music" type="button" class="sketch-box px-3 sm:px-4 py-2 text-xs sm:text-sm font-bold hover:bg-gray-100 shadow-[2px_2px_0px_#111]">
+          🎵 음악 일시정지
+        </button>
+      </div>
+    </div>
+
+    <!-- 무대 댄스 애니메이션 캔버스 -->
+    <canvas id="dance-canvas" class="absolute inset-0 w-full h-full block pointer-events-none"></canvas>
+
+    <!-- 하단 안내 및 현재 재생 곡 배지 -->
+    <div class="w-full flex flex-col items-center gap-1.5 pb-4 z-20 pointer-events-none px-4">
+      <div class="inline-flex items-center gap-2 bg-white/95 border-2 border-[#111] px-4 py-1.5 rounded-full shadow-[2px_2px_0px_#111] text-xs sm:text-sm font-bold">
+        <span id="stage-song-badge">🎶 노래 1 (115 BPM)</span>
+        <span class="text-gray-300">|</span>
+        <span class="font-medium text-gray-700">화면을 터치/클릭하면 신나게 점프합니다!</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. Web Audio API 신디사이저 엔진 + 로컬 오디오 파일 하이브리드 오디오 매니저
+    // =========================================================================
+    class DanceAudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.masterGain = null;
+        this.isPlaying = false;
+        this.mode = 'synth'; // 'synth' | 'file'
+        this.selectedSongId = null; // '1' | '2' | '3' | '4' | 'custom'
+        this.currentBpm = 115;
+        this.stepIndex = 0;
+        this.schedulerTimer = null;
+        this.nextNoteTime = 0;
+
+        this.fileAudio = new Audio();
+        this.fileAudio.loop = true;
+        this.fileObjectUrl = null;
+        this.customFileName = '';
+
+        // 4가지 신스 곡 정의 (첨부된 4개 음원의 분위기와 리듬을 Web Audio API로 정교하게 구현)
+        this.tracks = {
+          '1': {
+            name: '노래 1',
+            bpm: 115,
+            bassNotes: [65.41, 0, 65.41, 77.78, 0, 87.31, 98.00, 77.78, 65.41, 0, 65.41, 98.00, 116.54, 98.00, 87.31, 77.78],
+            leadNotes: [261.63, 311.13, 0, 392.00, 349.23, 311.13, 261.63, 0, 261.63, 311.13, 392.00, 466.16, 392.00, 349.23, 311.13, 261.63],
+            formants: [
+              [700, 1200], [500, 1800], [0, 0], [400, 2100],
+              [600, 1400], [750, 1150], [450, 1900], [0, 0],
+              [720, 1250], [520, 1750], [380, 2200], [650, 1300],
+              [500, 1850], [700, 1200], [420, 2000], [600, 1400]
+            ],
+            style: 'vocalchop'
+          },
+          '2': {
+            name: '노래 2',
+            bpm: 128,
+            bassNotes: [130.81, 130.81, 196.00, 130.81, 164.81, 164.81, 220.00, 164.81, 174.61, 174.61, 261.63, 174.61, 196.00, 246.94, 293.66, 196.00],
+            leadNotes: [523.25, 659.25, 783.99, 1046.50, 783.99, 659.25, 523.25, 659.25, 587.33, 698.46, 880.00, 1174.66, 880.00, 783.99, 659.25, 587.33],
+            arpNotes: [1046.50, 1318.51, 1567.98, 2093.00, 1567.98, 1318.51, 1046.50, 1318.51, 1174.66, 1396.91, 1760.00, 2349.32, 1760.00, 1567.98, 1318.51, 1174.66],
+            style: 'kpop'
+          },
+          '3': {
+            name: '노래 3',
+            bpm: 120,
+            bassNotes: [110.00, 220.00, 110.00, 220.00, 130.81, 261.63, 130.81, 261.63, 146.83, 293.66, 146.83, 293.66, 164.81, 329.63, 146.83, 130.81],
+            leadNotes: [440.00, 523.25, 0, 659.25, 0, 523.25, 659.25, 783.99, 587.33, 0, 659.25, 523.25, 0, 493.88, 440.00, 392.00],
+            style: 'disco'
+          },
+          '4': {
+            name: '노래 4',
+            bpm: 124,
+            bassNotes: [82.41, 0, 82.41, 98.00, 110.00, 0, 123.47, 146.83, 82.41, 0, 82.41, 98.00, 123.47, 110.00, 98.00, 73.42],
+            leadNotes: [329.63, 329.63, 0, 392.00, 440.00, 0, 493.88, 0, 587.33, 493.88, 440.00, 392.00, 493.88, 0, 329.63, 0],
+            guitarChops: [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+            style: 'brassfunk'
+          }
+        };
+      }
+
+      unlockAudioContext() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioCtx();
+          this.masterGain = this.ctx.createGain();
+          this.masterGain.gain.value = 0.42;
+          this.masterGain.connect(this.ctx.destination);
+        }
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      selectAndPlaySynth(songId) {
+        this.unlockAudioContext();
+        this.stopAll(false);
+
+        const track = this.tracks[songId] || this.tracks['1'];
+        this.mode = 'synth';
+        this.selectedSongId = songId;
+        this.currentBpm = track.bpm;
+        this.isPlaying = true;
+        this.stepIndex = 0;
+        this.nextNoteTime = this.ctx.currentTime + 0.02;
+
+        this.schedulerTimer = setInterval(() => this.scheduleSteps(), 25);
+        this.updateUI();
+      }
+
+      loadAndPlayFile(file) {
+        this.unlockAudioContext();
+        this.stopAll(false);
+
+        if (this.fileObjectUrl) {
+          URL.revokeObjectURL(this.fileObjectUrl);
+        }
+        this.fileObjectUrl = URL.createObjectURL(file);
+        this.customFileName = file.name.replace(/\.[^/.]+$/, '');
+
+        this.mode = 'file';
+        this.selectedSongId = 'custom';
+        this.currentBpm = 122;
+        this.fileAudio.src = this.fileObjectUrl;
+        this.fileAudio.currentTime = 0;
+
+        this.fileAudio.play().then(() => {
+          this.isPlaying = true;
+          this.updateUI();
+        }).catch(() => {
+          this.selectAndPlaySynth('1');
+        });
+      }
+
+      togglePlayPause() {
+        this.unlockAudioContext();
+        if (!this.selectedSongId) {
+          this.selectAndPlaySynth('1');
+          return;
+        }
+
+        if (this.isPlaying) {
+          if (this.mode === 'synth') {
+            clearInterval(this.schedulerTimer);
+            this.schedulerTimer = null;
+          } else {
+            this.fileAudio.pause();
+          }
+          this.isPlaying = false;
+        } else {
+          if (this.mode === 'synth') {
+            this.nextNoteTime = this.ctx.currentTime + 0.02;
+            this.schedulerTimer = setInterval(() => this.scheduleSteps(), 25);
+          } else {
+            this.fileAudio.play();
+          }
+          this.isPlaying = true;
+        }
+        this.updateUI();
+      }
+
+      stopAll(resetSelection = false) {
+        if (this.schedulerTimer) {
+          clearInterval(this.schedulerTimer);
+          this.schedulerTimer = null;
+        }
+        if (this.fileAudio && !this.fileAudio.paused) {
+          this.fileAudio.pause();
+        }
+        this.isPlaying = false;
+        if (resetSelection) {
+          this.selectedSongId = null;
+        }
+        this.updateUI();
+      }
+
+      scheduleSteps() {
+        if (!this.isPlaying || !this.ctx) return;
+        const secondsPerBeat = 60.0 / this.currentBpm;
+        const sixteenth = secondsPerBeat / 4;
+
+        while (this.nextNoteTime < this.ctx.currentTime + 0.1) {
+          this.triggerStepSound(this.stepIndex, this.nextNoteTime, sixteenth);
+          this.nextNoteTime += sixteenth;
+          this.stepIndex = (this.stepIndex + 1) % 16;
+        }
+      }
+
+      triggerStepSound(step, time, stepDur) {
+        const track = this.tracks[this.selectedSongId] || this.tracks['1'];
+        const bassFreq = track.bassNotes[step];
+        const leadFreq = track.leadNotes[step];
+
+        if (step % 4 === 0) {
+          this.playKick(time, track.style === 'vocalchop' ? 1.0 : 0.85);
+        }
+
+        if (step === 4 || step === 12) {
+          this.playSnare(time);
+        }
+
+        if (step % 2 === 0) {
+          this.playHiHat(time, step % 4 === 2 ? 0.16 : 0.07);
+        } else if (track.style === 'kpop' || track.style === 'brassfunk' || track.style === 'disco') {
+          this.playHiHat(time, 0.045);
+        }
+
+        if (bassFreq > 0) {
+          this.playBass(bassFreq, time, stepDur * 1.4, track.style);
+        }
+
+        if (leadFreq > 0) {
+          this.playLead(leadFreq, time, stepDur * 1.65, track.style, step, track);
+        }
+
+        if (track.style === 'kpop' && track.arpNotes && track.arpNotes[step] > 0) {
+          this.playArpChip(track.arpNotes[step], time, stepDur * 0.75);
+        }
+        if (track.style === 'brassfunk' && track.guitarChops && track.guitarChops[step]) {
+          this.playFunkGuitarChop(time, stepDur * 0.65);
+        }
+      }
+
+      playKick(time, punch = 0.85) {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(150, time);
+        osc.frequency.exponentialRampToValueAtTime(36, time + 0.14);
+
+        gain.gain.setValueAtTime(punch, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.19);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(time);
+        osc.stop(time + 0.2);
+      }
+
+      playSnare(time) {
+        const bufferSize = this.ctx.sampleRate * 0.14;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.value = 900;
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.42, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.14);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+        noise.start(time);
+      }
+
+      playHiHat(time, volume) {
+        const bufferSize = this.ctx.sampleRate * 0.05;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.value = 6500;
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(volume, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.045);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+        noise.start(time);
+      }
+
+      playBass(freq, time, duration, style) {
+        const osc = this.ctx.createOscillator();
+        const filter = this.ctx.createBiquadFilter();
+        const gain = this.ctx.createGain();
+
+        osc.type = (style === 'disco' || style === 'vocalchop') ? 'sawtooth' : 'triangle';
+        osc.frequency.setValueAtTime(freq, time);
+
+        filter.type = 'lowpass';
+        if (style === 'vocalchop') {
+          filter.frequency.setValueAtTime(520, time);
+          filter.frequency.exponentialRampToValueAtTime(140, time + duration);
+        } else if (style === 'disco') {
+          filter.frequency.setValueAtTime(1050, time);
+          filter.frequency.exponentialRampToValueAtTime(240, time + duration);
+        } else {
+          filter.frequency.setValueAtTime(700, time);
+          filter.frequency.exponentialRampToValueAtTime(220, time + duration);
+        }
+
+        gain.gain.setValueAtTime(style === 'vocalchop' ? 0.56 : 0.48, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(time);
+        osc.stop(time + duration + 0.01);
+      }
+
+      playLead(freq, time, duration, style, step = 0, track = null) {
+        if (style === 'vocalchop') {
+          const osc = this.ctx.createOscillator();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, time);
+
+          const [f1Freq, f2Freq] = (track && track.formants && track.formants[step] && track.formants[step][0] > 0)
+            ? track.formants[step]
+            : [650, 1400];
+
+          const f1 = this.ctx.createBiquadFilter();
+          f1.type = 'bandpass';
+          f1.frequency.setValueAtTime(f1Freq, time);
+          f1.Q.value = 5.5;
+
+          const f2 = this.ctx.createBiquadFilter();
+          f2.type = 'bandpass';
+          f2.frequency.setValueAtTime(f2Freq, time);
+          f2.Q.value = 6.5;
+
+          const gain = this.ctx.createGain();
+          gain.gain.setValueAtTime(0.001, time);
+          gain.gain.linearRampToValueAtTime(0.32, time + 0.012);
+          gain.gain.exponentialRampToValueAtTime(0.001, time + duration * 0.9);
+
+          osc.connect(f1);
+          osc.connect(f2);
+          f1.connect(gain);
+          f2.connect(gain);
+          gain.connect(this.masterGain);
+          osc.start(time);
+          osc.stop(time + duration + 0.02);
+          return;
+        }
+
+        if (style === 'kpop') {
+          const osc = this.ctx.createOscillator();
+          const subOsc = this.ctx.createOscillator();
+          const filter = this.ctx.createBiquadFilter();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'triangle';
+          subOsc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, time);
+          subOsc.frequency.setValueAtTime(freq * 2, time);
+
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(3400, time);
+
+          gain.gain.setValueAtTime(0.001, time);
+          gain.gain.linearRampToValueAtTime(0.25, time + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+
+          osc.connect(filter);
+          subOsc.connect(filter);
+          filter.connect(gain);
+          gain.connect(this.masterGain);
+          osc.start(time);
+          subOsc.start(time);
+          osc.stop(time + duration + 0.02);
+          subOsc.stop(time + duration + 0.02);
+          return;
+        }
+
+        if (style === 'disco') {
+          const osc = this.ctx.createOscillator();
+          const filter = this.ctx.createBiquadFilter();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, time);
+
+          const sweepBoost = (step % 8) * 180;
+          filter.type = 'lowpass';
+          filter.Q.value = 3.2;
+          filter.frequency.setValueAtTime(2400 + sweepBoost, time);
+          filter.frequency.exponentialRampToValueAtTime(480, time + duration);
+
+          gain.gain.setValueAtTime(0.001, time);
+          gain.gain.linearRampToValueAtTime(0.24, time + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(this.masterGain);
+          osc.start(time);
+          osc.stop(time + duration + 0.02);
+          return;
+        }
+
+        // 노래 4: 경쾌한 브라스 혼 섹션
+        const osc1 = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        const filter = this.ctx.createBiquadFilter();
+        const gain = this.ctx.createGain();
+
+        osc1.type = 'sawtooth';
+        osc2.type = 'sawtooth';
+        osc1.frequency.setValueAtTime(freq, time);
+        osc2.frequency.setValueAtTime(freq * 1.006, time);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(900, time);
+        filter.frequency.linearRampToValueAtTime(3400, time + 0.045);
+        filter.frequency.exponentialRampToValueAtTime(1400, time + duration);
+
+        gain.gain.setValueAtTime(0.001, time);
+        gain.gain.linearRampToValueAtTime(0.22, time + 0.025);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+
+        osc1.connect(filter);
+        osc2.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+        osc1.start(time);
+        osc2.start(time);
+        osc1.stop(time + duration + 0.02);
+        osc2.stop(time + duration + 0.02);
+      }
+
+      playArpChip(freq, time, duration) {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(freq, time);
+        gain.gain.setValueAtTime(0.065, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(time);
+        osc.stop(time + duration + 0.01);
+      }
+
+      playFunkGuitarChop(time, duration) {
+        const chordFreqs = [329.63, 493.88, 659.25];
+        chordFreqs.forEach((f) => {
+          const osc = this.ctx.createOscillator();
+          const filter = this.ctx.createBiquadFilter();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(f, time);
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(1900, time);
+          filter.Q.value = 2.0;
+          gain.gain.setValueAtTime(0.075, time);
+          gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(this.masterGain);
+          osc.start(time);
+          osc.stop(time + duration + 0.01);
+        });
+      }
+
+      getDisplayLabel() {
+        if (!this.selectedSongId) return '노래 1 (115 BPM)';
+        if (this.selectedSongId === 'custom') {
+          return `${this.customFileName || '내 음원'}`;
+        }
+        const t = this.tracks[this.selectedSongId];
+        return `${t.name} (${t.bpm} BPM)`;
+      }
+
+      updateUI() {
+        document.querySelectorAll('.song-btn').forEach((btn) => {
+          if (btn.dataset.song === this.selectedSongId) {
+            btn.classList.add('selected');
+          } else {
+            btn.classList.remove('selected');
+          }
+        });
+
+        const previewBar = document.getElementById('preview-player-bar');
+        const previewEq = document.getElementById('preview-eq');
+        const previewLabel = document.getElementById('preview-song-label');
+        const previewToggleBtn = document.getElementById('btn-preview-toggle');
+
+        if (this.selectedSongId) {
+          previewBar.classList.remove('hidden');
+          const title = this.selectedSongId === 'custom'
+            ? (this.customFileName || '내 음원')
+            : this.tracks[this.selectedSongId].name;
+          previewLabel.textContent = this.isPlaying ? `${title} 재생 중` : `${title} 일시정지`;
+          previewToggleBtn.textContent = this.isPlaying ? '정지' : '재생';
+          if (this.isPlaying) {
+            previewEq.classList.remove('eq-paused');
+          } else {
+            previewEq.classList.add('eq-paused');
+          }
+        } else {
+          previewBar.classList.add('hidden');
+        }
+
+        const stageMusicBtn = document.getElementById('btn-stage-music');
+        const stageSongBadge = document.getElementById('stage-song-badge');
+        if (stageMusicBtn) {
+          stageMusicBtn.textContent = this.isPlaying ? '🎵 음악 일시정지' : '🎵 음악 재생';
+        }
+        if (stageSongBadge) {
+          stageSongBadge.textContent = `🎶 ${this.getDisplayLabel()}`;
+        }
+      }
+    }
+
+    const audioEngine = new DanceAudioEngine();
+
+    document.querySelectorAll('.song-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const songId = btn.dataset.song;
+        if (audioEngine.selectedSongId === songId && audioEngine.mode === 'synth') {
+          audioEngine.togglePlayPause();
+        } else {
+          audioEngine.selectAndPlaySynth(songId);
+        }
+      });
+    });
+
+    document.getElementById('btn-preview-toggle').addEventListener('click', () => {
+      audioEngine.togglePlayPause();
+    });
+
+    document.getElementById('local-audio-input').addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) {
+        audioEngine.loadAndPlayFile(file);
+      }
+      e.target.value = '';
+    });
+
+    // =========================================================================
+    // 2. 손그림 4단 레이어 드로잉 캔버스 엔진 & T-포즈 가이드라인
+    // =========================================================================
+    const LOGICAL_SIZE = 800;
+    const LAYER_COUNT = 4; // 1번 레이어(인덱스 0)가 맨 위, 4번 레이어(인덱스 3)가 맨 아래
+
+    const drawState = {
+      tool: 'pen', // 'pen' | 'eraser'
+      color: '#111111',
+      hue: 0,
+      sat: 0,
+      val: 0.07,
+      brushSize: 10,
+      activeLayer: 0, // 기본 선택: 1번 레이어 (최상위)
+      layerVisibility: [true, true, true, true],
+      showGuideline: true,
+      isDrawing: false,
+      lastX: 0,
+      lastY: 0,
+      history: [],
+      historyIndex: -1,
+      maxHistory: 25
+    };
+
+    const layerCanvases = [];
+    const layerContexts = [];
+    for (let i = 0; i < LAYER_COUNT; i++) {
+      const c = document.createElement('canvas');
+      c.width = LOGICAL_SIZE;
+      c.height = LOGICAL_SIZE;
+      layerCanvases.push(c);
+      layerContexts.push(c.getContext('2d'));
+    }
+
+    const guidelineCanvas = document.createElement('canvas');
+    guidelineCanvas.width = LOGICAL_SIZE;
+    guidelineCanvas.height = LOGICAL_SIZE;
+    const guidelineCtx = guidelineCanvas.getContext('2d');
+
+    const mainCanvas = document.getElementById('main-canvas');
+    const mainCtx = mainCanvas.getContext('2d');
+    const canvasWrapper = document.getElementById('canvas-wrapper');
+
+    let viewTransform = { scale: 1, offsetX: 0, offsetY: 0, dpr: 1 };
+
+    const layerListEl = document.getElementById('layer-list');
+    const thumbCanvases = new Array(LAYER_COUNT);
+    const layerVisButtons = new Array(LAYER_COUNT);
+
+    function initLayerUI() {
+      layerListEl.innerHTML = '';
+      for (let i = 0; i < LAYER_COUNT; i++) {
+        const item = document.createElement('div');
+        item.className = `layer-item flex items-center justify-between px-2 py-1 ${i === drawState.activeLayer ? 'active' : ''}`;
+        item.dataset.index = i;
+
+        const leftGroup = document.createElement('div');
+        leftGroup.className = 'flex items-center gap-2';
+
+        const numSpan = document.createElement('span');
+        numSpan.className = 'sketch-font text-lg sm:text-xl font-bold w-3.5 text-center leading-none text-[#111]';
+        numSpan.textContent = String(i + 1);
+
+        const thumbBox = document.createElement('div');
+        thumbBox.className = 'layer-thumb w-11 sm:w-12 h-6 sm:h-7 flex items-center justify-center';
+        const thumbCanvas = document.createElement('canvas');
+        thumbCanvas.width = 96;
+        thumbCanvas.height = 56;
+        thumbCanvas.className = 'w-full h-full block';
+        thumbBox.appendChild(thumbCanvas);
+        thumbCanvases[i] = thumbCanvas;
+
+        leftGroup.appendChild(numSpan);
+        leftGroup.appendChild(thumbBox);
+
+        const visBtn = document.createElement('button');
+        visBtn.type = 'button';
+        visBtn.title = `레이어 ${i + 1} 표시/숨기기`;
+        visBtn.className = 'w-6 h-6 flex items-center justify-center rounded hover:bg-black/5 transition-opacity';
+        visBtn.innerHTML = `
+          <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="#111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/>
+            <circle cx="12" cy="12" r="2.8"/>
+          </svg>
+        `;
+        visBtn.style.opacity = drawState.layerVisibility[i] ? '1' : '0.3';
+        layerVisButtons[i] = visBtn;
+
+        visBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          drawState.layerVisibility[i] = !drawState.layerVisibility[i];
+          visBtn.style.opacity = drawState.layerVisibility[i] ? '1' : '0.3';
+          renderMainCanvas();
+        });
+
+        item.addEventListener('click', () => {
+          drawState.activeLayer = i;
+          document.querySelectorAll('.layer-item').forEach((el, idx) => {
+            el.classList.toggle('active', idx === i);
+          });
+        });
+
+        item.appendChild(leftGroup);
+        item.appendChild(visBtn);
+        layerListEl.appendChild(item);
+      }
+    }
+
+    function updateLayerThumbnail(index) {
+      const tc = thumbCanvases[index];
+      if (!tc) return;
+      const tctx = tc.getContext('2d');
+      tctx.clearRect(0, 0, tc.width, tc.height);
+      // 캐릭터가 그려지는 중앙 영역(150, 100, 500, 520)을 썸네일 박스에 축소 표시
+      tctx.drawImage(
+        layerCanvases[index],
+        150, 100, 500, 520,
+        18, 2, 60, 52
+      );
+    }
+
+    // T-포즈 캐릭터 가이드라인 생성
+    function drawGuidelineOutline(ctx) {
+      ctx.clearRect(0, 0, LOGICAL_SIZE, LOGICAL_SIZE);
+      ctx.save();
+
+      const bodyPath = new Path2D();
+      bodyPath.moveTo(400, 128);
+      bodyPath.bezierCurveTo(436, 128, 456, 158, 456, 195);
+      bodyPath.bezierCurveTo(456, 218, 444, 228, 436, 232);
+      bodyPath.bezierCurveTo(432, 236, 434, 245, 448, 246);
+      bodyPath.bezierCurveTo(490, 248, 540, 245, 578, 247);
+      bodyPath.bezierCurveTo(604, 249, 612, 263, 611, 275);
+      bodyPath.bezierCurveTo(610, 288, 599, 297, 576, 298);
+      bodyPath.bezierCurveTo(535, 299, 490, 300, 452, 298);
+      bodyPath.bezierCurveTo(456, 345, 462, 395, 468, 440);
+      bodyPath.bezierCurveTo(476, 495, 488, 545, 488, 575);
+      bodyPath.bezierCurveTo(488, 595, 476, 602, 466, 597);
+      bodyPath.bezierCurveTo(454, 590, 444, 565, 434, 525);
+      bodyPath.bezierCurveTo(426, 492, 420, 465, 412, 453);
+      bodyPath.bezierCurveTo(406, 449, 394, 449, 388, 453);
+      bodyPath.bezierCurveTo(380, 465, 374, 492, 366, 525);
+      bodyPath.bezierCurveTo(356, 565, 346, 590, 334, 597);
+      bodyPath.bezierCurveTo(324, 602, 312, 595, 312, 575);
+      bodyPath.bezierCurveTo(312, 545, 324, 495, 332, 440);
+      bodyPath.bezierCurveTo(338, 395, 344, 345, 348, 298);
+      bodyPath.bezierCurveTo(310, 300, 265, 299, 224, 298);
+      bodyPath.bezierCurveTo(201, 297, 190, 288, 189, 275);
+      bodyPath.bezierCurveTo(188, 263, 196, 249, 222, 247);
+      bodyPath.bezierCurveTo(260, 245, 310, 248, 352, 246);
+      bodyPath.bezierCurveTo(366, 245, 368, 236, 364, 232);
+      bodyPath.bezierCurveTo(356, 228, 344, 218, 344, 195);
+      bodyPath.bezierCurveTo(344, 158, 364, 128, 400, 128);
+      bodyPath.closePath();
+
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.setLineDash([8, 6]);
+      ctx.strokeStyle = 'rgba(120, 120, 120, 0.55)';
+      ctx.lineWidth = 3.2;
+      ctx.stroke(bodyPath);
+      ctx.restore();
+    }
+
+    // 캔버스가 비어있을 때 사용할 귀여운 기본 손그림 캐릭터 생성
+    function createDefaultHandDrawnCharacter() {
+      const c = document.createElement('canvas');
+      c.width = LOGICAL_SIZE;
+      c.height = LOGICAL_SIZE;
+      const ctx = c.getContext('2d');
+
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      // 몸통 (노란 티셔츠)
+      ctx.fillStyle = '#fde047';
+      ctx.strokeStyle = '#111111';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.roundRect(350, 242, 100, 205, 24);
+      ctx.fill();
+      ctx.stroke();
+
+      // 왼팔
+      ctx.fillStyle = '#fed7aa';
+      ctx.beginPath();
+      ctx.roundRect(195, 248, 158, 46, 23);
+      ctx.fill();
+      ctx.stroke();
+
+      // 오른팔
+      ctx.beginPath();
+      ctx.roundRect(447, 248, 158, 46, 23);
+      ctx.fill();
+      ctx.stroke();
+
+      // 왼다리 (파란 바지)
+      ctx.fillStyle = '#60a5fa';
+      ctx.beginPath();
+      ctx.roundRect(342, 444, 46, 148, 22);
+      ctx.fill();
+      ctx.stroke();
+
+      // 오른다리
+      ctx.beginPath();
+      ctx.roundRect(412, 444, 46, 148, 22);
+      ctx.fill();
+      ctx.stroke();
+
+      // 얼굴
+      ctx.fillStyle = '#fed7aa';
+      ctx.beginPath();
+      ctx.arc(400, 184, 54, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // 눈, 볼터치, 웃는 입
+      ctx.fillStyle = '#111111';
+      ctx.beginPath();
+      ctx.arc(382, 178, 5, 0, Math.PI * 2);
+      ctx.arc(418, 178, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#fb7185';
+      ctx.beginPath();
+      ctx.arc(370, 190, 7, 0, Math.PI * 2);
+      ctx.arc(430, 190, 7, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(400, 192, 14, 0.15 * Math.PI, 0.85 * Math.PI);
+      ctx.stroke();
+
+      ctx.restore();
+      return c;
+    }
+
+    // 4개 레이어 전체 스냅샷 기반 히스토리(Undo/Redo) 관리
+    function saveHistory() {
+      if (drawState.historyIndex < drawState.history.length - 1) {
+        drawState.history = drawState.history.slice(0, drawState.historyIndex + 1);
+      }
+      const snapshot = layerCanvases.map((c) => {
+        const copy = document.createElement('canvas');
+        copy.width = LOGICAL_SIZE;
+        copy.height = LOGICAL_SIZE;
+        copy.getContext('2d').drawImage(c, 0, 0);
+        return copy;
+      });
+      drawState.history.push(snapshot);
+
+      if (drawState.history.length > drawState.maxHistory) {
+        drawState.history.shift();
+      } else {
+        drawState.historyIndex++;
+      }
+      updateUndoRedoButtons();
+    }
+
+    function restoreHistory(index) {
+      if (index < 0 || index >= drawState.history.length) return;
+      const snapshot = drawState.history[index];
+      for (let i = 0; i < LAYER_COUNT; i++) {
+        layerContexts[i].clearRect(0, 0, LOGICAL_SIZE, LOGICAL_SIZE);
+        layerContexts[i].drawImage(snapshot[i], 0, 0);
+        updateLayerThumbnail(i);
+      }
+      drawState.historyIndex = index;
+      updateUndoRedoButtons();
+      renderMainCanvas();
+    }
+
+    function updateUndoRedoButtons() {
+      document.getElementById('btn-undo').disabled = drawState.historyIndex <= 0;
+      document.getElementById('btn-redo').disabled = drawState.historyIndex >= drawState.history.length - 1;
+    }
+
+    // =========================================================================
+    // 3. 컬러 피커 및 팔레트 이벤트
+    // =========================================================================
+    const svBox = document.getElementById('sv-box');
+    const svCanvas = document.getElementById('sv-canvas');
+    const svCtx = svCanvas.getContext('2d');
+    const svCursor = document.getElementById('sv-cursor');
+    const hueBar = document.getElementById('hue-bar');
+    const hueCursor = document.getElementById('hue-cursor');
+
+    function hsvToHex(h, s, v) {
+      const f = (n, k = (n + h / 60) % 6) => v - v * s * Math.max(Math.min(k, 4 - k, 1), 0);
+      const r = Math.round(f(5) * 255);
+      const g = Math.round(f(3) * 255);
+      const b = Math.round(f(1) * 255);
+      return '#' + [r, g, b].map((x) => x.toString(16).padStart(2, '0')).join('');
+    }
+
+    function renderSVBox() {
+      const w = (svCanvas.width = 160);
+      const h = (svCanvas.height = 120);
+
+      svCtx.fillStyle = `hsl(${drawState.hue}, 100%, 50%)`;
+      svCtx.fillRect(0, 0, w, h);
+
+      const whiteGrad = svCtx.createLinearGradient(0, 0, w, 0);
+      whiteGrad.addColorStop(0, 'rgba(255,255,255,1)');
+      whiteGrad.addColorStop(1, 'rgba(255,255,255,0)');
+      svCtx.fillStyle = whiteGrad;
+      svCtx.fillRect(0, 0, w, h);
+
+      const blackGrad = svCtx.createLinearGradient(0, 0, 0, h);
+      blackGrad.addColorStop(0, 'rgba(0,0,0,0)');
+      blackGrad.addColorStop(1, 'rgba(0,0,0,1)');
+      svCtx.fillStyle = blackGrad;
+      svCtx.fillRect(0, 0, w, h);
+    }
+
+    function setActiveColor(hexColor) {
+      drawState.color = hexColor;
+      drawState.tool = 'pen';
+      document.getElementById('btn-pen').classList.add('sketch-btn-active');
+      document.getElementById('btn-eraser').classList.remove('sketch-btn-active');
+      document.getElementById('brush-dot-preview').style.backgroundColor = hexColor;
+
+      document.querySelectorAll('.color-swatch').forEach((sw) => {
+        if (sw.dataset.color.toLowerCase() === hexColor.toLowerCase()) {
+          sw.classList.add('ring-2', 'ring-offset-1', 'ring-[#111]');
+        } else {
+          sw.classList.remove('ring-2', 'ring-offset-1', 'ring-[#111]');
+        }
+      });
+    }
+
+    function updatePickerColor() {
+      const hex = hsvToHex(drawState.hue, drawState.sat, drawState.val);
+      svCursor.style.left = `${drawState.sat * 100}%`;
+      svCursor.style.top = `${(1 - drawState.val) * 100}%`;
+      hueCursor.style.left = `${(drawState.hue / 360) * 100}%`;
+      setActiveColor(hex);
+    }
+
+    document.querySelectorAll('.color-swatch').forEach((swatch) => {
+      swatch.addEventListener('click', () => {
+        setActiveColor(swatch.dataset.color);
+      });
+    });
+
+    let draggingSV = false;
+    let draggingHue = false;
+
+    function handleSVPointer(e) {
+      const rect = svBox.getBoundingClientRect();
+      const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+      drawState.sat = x;
+      drawState.val = 1 - y;
+      updatePickerColor();
+    }
+
+    function handleHuePointer(e) {
+      const rect = hueBar.getBoundingClientRect();
+      const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      drawState.hue = x * 360;
+      renderSVBox();
+      updatePickerColor();
+    }
+
+    svBox.addEventListener('pointerdown', (e) => {
+      draggingSV = true;
+      svBox.setPointerCapture(e.pointerId);
+      handleSVPointer(e);
+    });
+    svBox.addEventListener('pointermove', (e) => { if (draggingSV) handleSVPointer(e); });
+    svBox.addEventListener('pointerup', () => { draggingSV = false; });
+
+    hueBar.addEventListener('pointerdown', (e) => {
+      draggingHue = true;
+      hueBar.setPointerCapture(e.pointerId);
+      handleHuePointer(e);
+    });
+    hueBar.addEventListener('pointermove', (e) => { if (draggingHue) handleHuePointer(e); });
+    hueBar.addEventListener('pointerup', () => { draggingHue = false; });
+
+    // =========================================================================
+    // 4. 메인 캔버스 그리기 및 도구 버튼 동작
+    // =========================================================================
+    function resizeMainCanvas() {
+      const rect = canvasWrapper.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      mainCanvas.width = rect.width * dpr;
+      mainCanvas.height = rect.height * dpr;
+
+      const minDim = Math.min(rect.width, rect.height);
+      const scale = (minDim * 1.1) / LOGICAL_SIZE;
+      const offsetX = (rect.width - LOGICAL_SIZE * scale) / 2;
+      const offsetY = (rect.height - LOGICAL_SIZE * scale) / 2 + (rect.height * 0.02);
+
+      viewTransform = { scale, offsetX, offsetY, dpr };
+      renderMainCanvas();
+    }
+
+    function renderMainCanvas() {
+      const { scale, offsetX, offsetY, dpr } = viewTransform;
+      mainCtx.save();
+      mainCtx.scale(dpr, dpr);
+      mainCtx.clearRect(0, 0, mainCanvas.width / dpr, mainCanvas.height / dpr);
+
+      mainCtx.translate(offsetX, offsetY);
+      mainCtx.scale(scale, scale);
+
+      if (drawState.showGuideline) {
+        mainCtx.drawImage(guidelineCanvas, 0, 0);
+      }
+
+      // 번호가 작을수록 위에 오도록 4번(인덱스 3) -> 3번 -> 2번 -> 1번(인덱스 0) 순서로 렌더링
+      for (let i = LAYER_COUNT - 1; i >= 0; i--) {
+        if (drawState.layerVisibility[i]) {
+          mainCtx.drawImage(layerCanvases[i], 0, 0);
+        }
+      }
+
+      mainCtx.restore();
+    }
+
+    function clientToLogical(clientX, clientY) {
+      const rect = mainCanvas.getBoundingClientRect();
+      return {
+        x: (clientX - rect.left - viewTransform.offsetX) / viewTransform.scale,
+        y: (clientY - rect.top - viewTransform.offsetY) / viewTransform.scale
+      };
+    }
+
+    function configureBrush(ctx) {
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = drawState.brushSize;
+      if (drawState.tool === 'eraser') {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.strokeStyle = 'rgba(0,0,0,1)';
+        ctx.fillStyle = 'rgba(0,0,0,1)';
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = drawState.color;
+        ctx.fillStyle = drawState.color;
+      }
+    }
+
+    mainCanvas.addEventListener('pointerdown', (e) => {
+      if (e.button !== undefined && e.button !== 0) return;
+      drawState.isDrawing = true;
+      mainCanvas.setPointerCapture(e.pointerId);
+
+      // 숨겨진 레이어에 그리기를 시작하면 자동으로 표시 활성화
+      if (!drawState.layerVisibility[drawState.activeLayer]) {
+        drawState.layerVisibility[drawState.activeLayer] = true;
+        if (layerVisButtons[drawState.activeLayer]) {
+          layerVisButtons[drawState.activeLayer].style.opacity = '1';
+        }
+      }
+
+      const pt = clientToLogical(e.clientX, e.clientY);
+      drawState.lastX = pt.x;
+      drawState.lastY = pt.y;
+
+      const activeCtx = layerContexts[drawState.activeLayer];
+      activeCtx.save();
+      configureBrush(activeCtx);
+      activeCtx.beginPath();
+      activeCtx.arc(pt.x, pt.y, drawState.brushSize / 2, 0, Math.PI * 2);
+      activeCtx.fill();
+      activeCtx.restore();
+
+      renderMainCanvas();
+    });
+
+    mainCanvas.addEventListener('pointermove', (e) => {
+      if (!drawState.isDrawing) return;
+      const pt = clientToLogical(e.clientX, e.clientY);
+
+      const activeCtx = layerContexts[drawState.activeLayer];
+      activeCtx.save();
+      configureBrush(activeCtx);
+      activeCtx.beginPath();
+      activeCtx.moveTo(drawState.lastX, drawState.lastY);
+      activeCtx.lineTo(pt.x, pt.y);
+      activeCtx.stroke();
+      activeCtx.restore();
+
+      drawState.lastX = pt.x;
+      drawState.lastY = pt.y;
+      renderMainCanvas();
+    });
+
+    function finishStroke() {
+      if (!drawState.isDrawing) return;
+      drawState.isDrawing = false;
+      updateLayerThumbnail(drawState.activeLayer);
+      saveHistory();
+    }
+
+    mainCanvas.addEventListener('pointerup', finishStroke);
+    mainCanvas.addEventListener('pointercancel', finishStroke);
+
+    // 펜 / 지우개 / 실행취소 / 레이어 지우기 / 전체 초기화 / 가이드 토글 버튼
+    document.getElementById('btn-pen').addEventListener('click', () => {
+      drawState.tool = 'pen';
+      document.getElementById('btn-pen').classList.add('sketch-btn-active');
+      document.getElementById('btn-eraser').classList.remove('sketch-btn-active');
+      document.getElementById('brush-dot-preview').style.backgroundColor = drawState.color;
+    });
+
+    document.getElementById('btn-eraser').addEventListener('click', () => {
+      drawState.tool = 'eraser';
+      document.getElementById('btn-eraser').classList.add('sketch-btn-active');
+      document.getElementById('btn-pen').classList.remove('sketch-btn-active');
+      document.getElementById('brush-dot-preview').style.backgroundColor = '#ffffff';
+    });
+
+    document.getElementById('brush-size').addEventListener('input', (e) => {
+      drawState.brushSize = parseInt(e.target.value, 10);
+      const previewDim = Math.max(4, Math.min(22, Math.round(drawState.brushSize * 0.6)));
+      const dot = document.getElementById('brush-dot-preview');
+      dot.style.width = `${previewDim}px`;
+      dot.style.height = `${previewDim}px`;
+    });
+
+    document.getElementById('btn-undo').addEventListener('click', () => {
+      if (drawState.historyIndex > 0) restoreHistory(drawState.historyIndex - 1);
+    });
+
+    document.getElementById('btn-redo').addEventListener('click', () => {
+      if (drawState.historyIndex < drawState.history.length - 1) restoreHistory(drawState.historyIndex + 1);
+    });
+
+    // 현재 선택된 레이어만 지우기
+    document.getElementById('btn-clear-layer').addEventListener('click', () => {
+      layerContexts[drawState.activeLayer].clearRect(0, 0, LOGICAL_SIZE, LOGICAL_SIZE);
+      updateLayerThumbnail(drawState.activeLayer);
+      saveHistory();
+      renderMainCanvas();
+    });
+
+    // 모든 레이어 전체 초기화
+    document.getElementById('btn-clear-canvas').addEventListener('click', () => {
+      for (let i = 0; i < LAYER_COUNT; i++) {
+        layerContexts[i].clearRect(0, 0, LOGICAL_SIZE, LOGICAL_SIZE);
+        updateLayerThumbnail(i);
+      }
+      saveHistory();
+      renderMainCanvas();
+    });
+
+    document.getElementById('btn-toggle-guide').addEventListener('click', (e) => {
+      drawState.showGuideline = !drawState.showGuideline;
+      e.currentTarget.textContent = `가이드라인: ${drawState.showGuideline ? '켜짐' : '꺼짐'}`;
+      renderMainCanvas();
+    });
+
+    // =========================================================================
+    // 5. 캐릭터 신체 부위 분할 및 만세 댄스 스테이지 애니메이션
+    // =========================================================================
+    const editorView = document.getElementById('editor-view');
+    const stageView = document.getElementById('stage-view');
+    const danceCanvas = document.getElementById('dance-canvas');
+    const danceCtx = danceCanvas.getContext('2d');
+
+    const bodyParts = {
+      head: null,
+      torso: null,
+      leftArm: null,
+      rightArm: null,
+      leftLeg: null,
+      rightLeg: null
+    };
+
+    const danceState = {
+      animId: null,
+      startTime: 0,
+      styleIndex: 0,
+      styles: ['만세 댄스', '좌우 흔들기', '점프 스핀'],
+      cloneCount: 1,
+      jumpBoost: 0
+    };
+
+    function isCanvasBlank(canvas) {
+      const ctx = canvas.getContext('2d');
+      const data = ctx.getImageData(0, 0, LOGICAL_SIZE, LOGICAL_SIZE).data;
+      for (let i = 3; i < data.length; i += 16) {
+        if (data[i] > 10) return false;
+      }
+      return true;
+    }
+
+    function buildCharacterParts() {
+      // 4번(인덱스 3)부터 1번(인덱스 0)까지 표시 상태인 레이어를 하나의 합성 캔버스로 병합
+      const mergedCanvas = document.createElement('canvas');
+      mergedCanvas.width = LOGICAL_SIZE;
+      mergedCanvas.height = LOGICAL_SIZE;
+      const mergedCtx = mergedCanvas.getContext('2d');
+
+      for (let i = LAYER_COUNT - 1; i >= 0; i--) {
+        if (drawState.layerVisibility[i]) {
+          mergedCtx.drawImage(layerCanvases[i], 0, 0);
+        }
+      }
+
+      const sourceCanvas = isCanvasBlank(mergedCanvas)
+        ? createDefaultHandDrawnCharacter()
+        : mergedCanvas;
+
+      function extractPart(x, y, w, h) {
+        const partCanvas = document.createElement('canvas');
+        partCanvas.width = LOGICAL_SIZE;
+        partCanvas.height = LOGICAL_SIZE;
+        const pctx = partCanvas.getContext('2d');
+        pctx.save();
+        pctx.beginPath();
+        pctx.rect(x, y, w, h);
+        pctx.clip();
+        pctx.drawImage(sourceCanvas, 0, 0);
+        pctx.restore();
+        return partCanvas;
+      }
+
+      bodyParts.head = extractPart(180, 20, 440, 218);
+      bodyParts.leftArm = extractPart(20, 200, 326, 150);
+      bodyParts.rightArm = extractPart(454, 200, 326, 150);
+      bodyParts.torso = extractPart(344, 235, 112, 219);
+      bodyParts.leftLeg = extractPart(180, 452, 220, 320);
+      bodyParts.rightLeg = extractPart(400, 452, 220, 320);
+    }
+
+    function drawPartWithPivot(ctx, partCanvas, pivotX, pivotY, angleRad, offsetX = 0, offsetY = 0) {
+      ctx.save();
+      ctx.translate(pivotX + offsetX, pivotY + offsetY);
+      ctx.rotate(angleRad);
+      ctx.translate(-pivotX, -pivotY);
+      ctx.drawImage(partCanvas, 0, 0);
+      ctx.restore();
+    }
+
+    function renderDancingCharacter(ctx, centerX, centerY, scale, phaseOffset, elapsed) {
+      const bpm = audioEngine.currentBpm || 120;
+      const beatFreq = (bpm / 60) * Math.PI;
+      const t = elapsed * beatFreq + phaseOffset;
+
+      let bounce = Math.abs(Math.sin(t)) * 22 + danceState.jumpBoost;
+      let swayX = Math.sin(t * 0.5) * 18;
+      let bodyTilt = Math.sin(t * 0.5) * 0.08;
+      let spinScaleX = 1;
+
+      let leftArmAngle = 0;
+      let rightArmAngle = 0;
+      let leftLegAngle = 0;
+      let rightLegAngle = 0;
+      let headTilt = Math.sin(t) * 0.14;
+
+      if (danceState.styleIndex === 0) {
+        // 0: 만세 댄스
+        leftArmAngle = 0.72 + Math.sin(t * 2) * 0.24;
+        rightArmAngle = -0.72 - Math.sin(t * 2) * 0.24;
+        leftLegAngle = Math.max(0, Math.sin(t)) * 0.34;
+        rightLegAngle = -Math.max(0, -Math.sin(t)) * 0.34;
+        headTilt = Math.sin(t * 2) * 0.16;
+      } else if (danceState.styleIndex === 1) {
+        // 1: 좌우 흔들기
+        swayX = Math.sin(t * 0.5) * 34;
+        bodyTilt = Math.sin(t * 0.5) * 0.16;
+        leftArmAngle = Math.sin(t * 0.5) * 0.65;
+        rightArmAngle = Math.sin(t * 0.5) * 0.65;
+        leftLegAngle = Math.sin(t * 0.5) * 0.22;
+        rightLegAngle = Math.sin(t * 0.5) * 0.22;
+      } else {
+        // 2: 점프 스핀
+        bounce = Math.abs(Math.sin(t)) * 42 + danceState.jumpBoost;
+        spinScaleX = Math.cos(t * 0.5);
+        leftArmAngle = 0.45 + Math.sin(t) * 0.45;
+        rightArmAngle = -0.45 - Math.sin(t) * 0.45;
+        leftLegAngle = Math.sin(t) * 0.38;
+        rightLegAngle = -Math.sin(t) * 0.38;
+      }
+
+      ctx.save();
+      ctx.translate(centerX + swayX, centerY - bounce);
+      ctx.scale(scale * (Math.abs(spinScaleX) < 0.12 ? 0.12 * Math.sign(spinScaleX || 1) : spinScaleX), scale);
+
+      // 바닥 그림자
+      ctx.save();
+      ctx.translate(0, 240 + bounce * 0.65);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, Math.max(20, 95 - bounce * 0.35), 15, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.rotate(bodyTilt);
+      ctx.translate(-400, -370);
+
+      drawPartWithPivot(ctx, bodyParts.leftLeg, 375, 452, leftLegAngle);
+      drawPartWithPivot(ctx, bodyParts.rightLeg, 425, 452, rightLegAngle);
+      ctx.drawImage(bodyParts.torso, 0, 0);
+      drawPartWithPivot(ctx, bodyParts.leftArm, 348, 272, leftArmAngle);
+      drawPartWithPivot(ctx, bodyParts.rightArm, 452, 272, rightArmAngle);
+      drawPartWithPivot(ctx, bodyParts.head, 400, 236, headTilt, 0, -Math.abs(Math.sin(t)) * 4);
+
+      ctx.restore();
+    }
+
+    function danceLoop(now) {
+      if (!danceState.startTime) danceState.startTime = now;
+      const elapsed = (now - danceState.startTime) / 1000;
+
+      if (danceState.jumpBoost > 0) {
+        danceState.jumpBoost = Math.max(0, danceState.jumpBoost - 3.5);
+      }
+
+      const dpr = window.devicePixelRatio || 1;
+      const w = danceCanvas.width / dpr;
+      const h = danceCanvas.height / dpr;
+
+      const bpm = audioEngine.currentBpm || 120;
+      const beatPulse = audioEngine.isPlaying ? Math.abs(Math.sin(elapsed * (bpm / 60) * Math.PI)) : 0;
+
+      danceCtx.save();
+      danceCtx.scale(dpr, dpr);
+      danceCtx.clearRect(0, 0, w, h);
+
+      const spotGrad = danceCtx.createRadialGradient(w * 0.5, h * 0.54, 40, w * 0.5, h * 0.54, Math.min(w, h) * 0.48);
+      spotGrad.addColorStop(0, `rgba(255, 243, 214, ${0.45 + beatPulse * 0.35})`);
+      spotGrad.addColorStop(0.65, `rgba(224, 242, 254, ${0.25 + beatPulse * 0.2})`);
+      spotGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      danceCtx.fillStyle = spotGrad;
+      danceCtx.fillRect(0, 0, w, h);
+
+      danceCtx.font = 'bold 30px Gaegu, cursive';
+      danceCtx.fillStyle = '#111111';
+      const decorPositions = [
+        { x: w * 0.16, y: h * 0.26, symbol: '♪' },
+        { x: w * 0.84, y: h * 0.24, symbol: '♫' },
+        { x: w * 0.14, y: h * 0.72, symbol: '★' },
+        { x: w * 0.86, y: h * 0.74, symbol: '♪' }
+      ];
+      decorPositions.forEach((d, idx) => {
+        const dy = Math.sin(elapsed * 4 + idx) * 10;
+        const rot = Math.sin(elapsed * 3 + idx) * 0.25;
+        danceCtx.save();
+        danceCtx.translate(d.x, d.y + dy);
+        danceCtx.rotate(rot);
+        danceCtx.scale(0.9 + beatPulse * 0.28, 0.9 + beatPulse * 0.28);
+        danceCtx.fillText(d.symbol, -10, 10);
+        danceCtx.restore();
+      });
+
+      const baseScale = Math.min(w, h) / 760;
+
+      if (danceState.cloneCount === 1) {
+        renderDancingCharacter(danceCtx, w * 0.5, h * 0.54, baseScale * 1.05, 0, elapsed);
+      } else if (danceState.cloneCount === 3) {
+        renderDancingCharacter(danceCtx, w * 0.24, h * 0.56, baseScale * 0.75, 1.0, elapsed);
+        renderDancingCharacter(danceCtx, w * 0.76, h * 0.56, baseScale * 0.75, 2.0, elapsed);
+        renderDancingCharacter(danceCtx, w * 0.50, h * 0.54, baseScale * 0.95, 0, elapsed);
+      } else {
+        const offsets = [-0.36, -0.18, 0, 0.18, 0.36];
+        offsets.forEach((off, i) => {
+          const isCenter = i === 2;
+          renderDancingCharacter(
+            danceCtx,
+            w * (0.5 + off),
+            h * (isCenter ? 0.54 : 0.57),
+            baseScale * (isCenter ? 0.88 : 0.62),
+            i * 0.7,
+            elapsed
+          );
+        });
+      }
+
+      danceCtx.restore();
+      danceState.animId = requestAnimationFrame(danceLoop);
+    }
+
+    function resizeDanceCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      danceCanvas.width = window.innerWidth * dpr;
+      danceCanvas.height = window.innerHeight * dpr;
+    }
+
+    // "완료" 버튼 클릭 -> 만세 댄스 무대 진입
+    document.getElementById('btn-complete').addEventListener('click', () => {
+      audioEngine.unlockAudioContext();
+
+      // 선택된 노래가 없으면 자동으로 '노래 1' 선택 및 재생, 일시정지 상태였다면 재생 시작
+      if (!audioEngine.selectedSongId) {
+        audioEngine.selectAndPlaySynth('1');
+      } else if (!audioEngine.isPlaying) {
+        audioEngine.togglePlayPause();
+      }
+
+      buildCharacterParts();
+      editorView.classList.add('hidden');
+      stageView.classList.remove('hidden');
+      resizeDanceCanvas();
+      audioEngine.updateUI();
+
+      danceState.startTime = 0;
+      danceState.jumpBoost = 45;
+      if (danceState.animId) cancelAnimationFrame(danceState.animId);
+      danceState.animId = requestAnimationFrame(danceLoop);
+    });
+
+    // "다시 그리기" 버튼 클릭 -> 에디터 복귀
+    document.getElementById('btn-back-edit').addEventListener('click', () => {
+      if (danceState.animId) {
+        cancelAnimationFrame(danceState.animId);
+        danceState.animId = null;
+      }
+      stageView.classList.add('hidden');
+      editorView.classList.remove('hidden');
+      resizeMainCanvas();
+    });
+
+    // 춤 동작 전환 버튼
+    document.getElementById('btn-dance-style').addEventListener('click', (e) => {
+      e.stopPropagation();
+      danceState.styleIndex = (danceState.styleIndex + 1) % danceState.styles.length;
+      e.currentTarget.textContent = `춤 동작: ${danceState.styles[danceState.styleIndex]}`;
+      danceState.jumpBoost = 35;
+    });
+
+    // 인원 수 전환 버튼
+    document.getElementById('btn-clones').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const nextMap = { 1: 3, 3: 5, 5: 1 };
+      danceState.cloneCount = nextMap[danceState.cloneCount];
+      e.currentTarget.textContent = `인원: ${danceState.cloneCount}명`;
+      danceState.jumpBoost = 30;
+    });
+
+    // 무대 상단 음악 일시정지 / 재생 버튼
+    document.getElementById('btn-stage-music').addEventListener('click', (e) => {
+      e.stopPropagation();
+      audioEngine.togglePlayPause();
+    });
+
+    // 무대 배경 클릭 시 점프 부스트
+    stageView.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button')) return;
+      danceState.jumpBoost = 55;
+    });
+
+    // =========================================================================
+    // 6. 초기화 실행
+    // =========================================================================
+    window.addEventListener('resize', () => {
+      if (!editorView.classList.contains('hidden')) {
+        resizeMainCanvas();
+      }
+      if (!stageView.classList.contains('hidden')) {
+        resizeDanceCanvas();
+      }
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      drawGuidelineOutline(guidelineCtx);
+      initLayerUI();
+      renderSVBox();
+      setActiveColor('#111111');
+      saveHistory();
+      resizeMainCanvas();
+    });
+  </script>
+</body>
+</html>
